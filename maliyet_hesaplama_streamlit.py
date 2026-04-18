@@ -1,21 +1,19 @@
-import streamlit as st
+# USD → TL dönüşüm
+cozgu_tl = cozgu_usd * kur
+atki_tl = atki_usd * kur
 
-st.title("Maliyet Hesaplama")
+iplik_toplam = cozgu_tl + atki_tl
 
-cozgu = st.number_input("Çözgü iplik fiyatı", 0.0)
-atki = st.number_input("Atkı iplik fiyatı", 0.0)
-dokuma = st.number_input("Dokuma maliyeti", 0.0)
-boya = st.number_input("Boyahane maliyeti", 0.0)
-konf = st.number_input("Konfeksiyon", 0.0)
-aksesuar = st.number_input("Aksesuar", 0.0)
-nakliye = st.number_input("Nakliye", 0.0)
-satis = st.number_input("Satış fiyatı", 0.0)
+toplam = iplik_toplam + dokuma + boya + konf + aksesuar + nakliye
+kar = satis - toplam
+marj = (kar / satis * 100) if satis > 0 else 0
 
-if st.button("HESAPLA"):
-    toplam = cozgu + atki + dokuma + boya + konf + aksesuar + nakliye
-    kar = satis - toplam
-    marj = (kar / satis * 100) if satis > 0 else 0
+st.subheader("Sonuçlar")
 
-    st.write("Toplam maliyet:", toplam)
-    st.write("Kar:", kar)
-    st.write("Kar marjı %:", marj)
+st.write("Çözgü TL:", cozgu_tl)
+st.write("Atkı TL:", atki_tl)
+st.write("İplik toplam:", iplik_toplam)
+
+st.write("Toplam maliyet:", toplam)
+st.write("Kar:", kar)
+st.write("Kar marjı %:", marj)
