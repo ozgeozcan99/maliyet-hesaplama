@@ -5,9 +5,9 @@ import json
 from io import BytesIO
 from datetime import datetime
 
-st.set_page_config(page_title="Maliyet Hesaplama Raporu", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Maliyet Hesaplama Raporu", layout="wide")
 
-DB_FILE = "maliyet_raporu_tekli_senaryolu.db"
+DB_FILE = "maliyet_raporu_final.db"
 
 
 # ----------------------------
@@ -27,31 +27,10 @@ def create_table():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tarih TEXT,
             urun_adi TEXT,
-            urun_adedi REAL,
-            stok_adedi REAL,
-            alis_kuru REAL,
-            satis_kuru REAL,
-            psf REAL,
-            trendyol_komisyon_orani REAL,
-            kargo_ucreti REAL,
-            toplam_maliyet_usd REAL,
             toplam_maliyet_tl REAL,
-            kar_orani REAL,
-            kar_usd REAL,
-            kar_tl REAL,
-            satis_fiyati_usd REAL,
             satis_fiyati_tl REAL,
-            stok_ciro REAL,
-            toplam_maliyet REAL,
-            smm_stok REAL,
-            trendyol_komisyon_tutari REAL,
-            panel_ucreti REAL,
-            iade_tutari REAL,
-            gerceklesen_gider REAL,
-            kazanc REAL,
-            kar_zarar REAL,
-            marj_yuzde REAL,
-            konya_marj_yuzde REAL,
+            kar REAL,
+            marj REAL,
             detay_json TEXT
         )
         """
@@ -59,30 +38,17 @@ def create_table():
     conn.commit()
 
 
-def ensure_detay_json_column():
-    cols = pd.read_sql_query("PRAGMA table_info(maliyet_raporu)", conn)
-    if "detay_json" not in cols["name"].tolist():
-        conn.execute("ALTER TABLE maliyet_raporu ADD COLUMN detay_json TEXT")
-        conn.commit()
-
-
 create_table()
-ensure_detay_json_column()
 
 
 def kayit_ekle(veri):
     conn.execute(
         """
         INSERT INTO maliyet_raporu (
-            tarih, urun_adi, urun_adedi, stok_adedi,
-            alis_kuru, satis_kuru, psf, trendyol_komisyon_orani,
-            kargo_ucreti, toplam_maliyet_usd, toplam_maliyet_tl,
-            kar_orani, kar_usd, kar_tl, satis_fiyati_usd, satis_fiyati_tl,
-            stok_ciro, toplam_maliyet, smm_stok, trendyol_komisyon_tutari,
-            panel_ucreti, iade_tutari, gerceklesen_gider, kazanc,
-            kar_zarar, marj_yuzde, konya_marj_yuzde, detay_json
+            tarih, urun_adi, toplam_maliyet_tl,
+            satis_fiyati_tl, kar, marj, detay_json
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         veri,
     )
@@ -93,24 +59,6 @@ def kayitlari_getir():
     return pd.read_sql_query("SELECT * FROM maliyet_raporu ORDER BY id DESC", conn)
 
 
-def kayit_sil(kayit_id):
-    conn.execute("DELETE FROM maliyet_raporu WHERE id = ?", (kayit_id,))
-    conn.commit()
-
-
-def tumunu_sil():
-    conn.execute("DELETE FROM maliyet_raporu")
-    conn.commit()
-
-
-def to_excel_bytes(df):
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Rapor")
-    output.seek(0)
-    return output.getvalue()
-
-
 # ----------------------------
 # HELPERS
 # ----------------------------
@@ -118,12 +66,10 @@ def safe_div(a, b):
     return a / b if b not in (0, None) else 0
 
 
-def pct_to_ratio(x):
+def pct(x):
     return x / 100.0
-
-
-# ----------------------------
-# HESAP BLOKLARI
+    # ----------------------------
+# DOKUMA HESAPLARI
 # ----------------------------
 def dokuma_taban_hesapla(
     ip_no_cozgu,
@@ -144,28 +90,33 @@ def dokuma_taban_hesapla(
     punch_toplam_bolen,
     mt_bolen,
 ):
-    fire_cozgu = pct_to_ratio(fire_cozgu_yuzde)
-    fire_atki = pct_to_ratio(fire_atki_yuzde)
+    fire_cozgu = pct(fire_cozgu_yuzde)
+    fire_atki = pct(fire_atki_yuzde)
 
     tel_sayisi_cozgu = tarak_end_cozgu * cozgu_atki_sayisi_cozgu
     tel_sayisi_atki = tarak_end_atki * cozgu_atki_sayisi_atki
 
+    # Punch gramaj
     punch_gramaj_cozgu = ((((tarak_end_cozgu / ham_end_cozgu) * cozgu_atki_sayisi_cozgu) / punch_katsayi) / ip_no_cozgu)
     punch_gramaj_atki = ((((tarak_end_atki / ham_end_atki) * cozgu_atki_sayisi_atki) / punch_katsayi) / ip_no_atki)
     punch_gramaj_toplam = safe_div((punch_gramaj_cozgu + punch_gramaj_atki), punch_toplam_bolen)
 
+    # MT tül gramaj
     mt_tul_gramaj_cozgu = (punch_gramaj_cozgu * tarak_end_cozgu) / mt_bolen
     mt_tul_gramaj_atki = (punch_gramaj_atki * tarak_end_atki) / mt_bolen
     mt_tul_gramaj_toplam = mt_tul_gramaj_cozgu + mt_tul_gramaj_atki
 
+    # Fireli MT tül gramaj
     fireli_mt_tul_gramaj_cozgu = (mt_tul_gramaj_cozgu * fire_cozgu) + mt_tul_gramaj_cozgu
     fireli_mt_tul_gramaj_atki = (mt_tul_gramaj_atki * fire_atki) + mt_tul_gramaj_atki
     fireli_mt_tul_gramaj_toplam = fireli_mt_tul_gramaj_cozgu + fireli_mt_tul_gramaj_atki
 
+    # İplik dolar maliyeti
     iplik_dolar_maliyeti_cozgu = iplik_fiyati_usd_cozgu * fireli_mt_tul_gramaj_cozgu
     iplik_dolar_maliyeti_atki = iplik_fiyati_usd_atki * fireli_mt_tul_gramaj_atki
     iplik_dolar_maliyeti_toplam = iplik_dolar_maliyeti_cozgu + iplik_dolar_maliyeti_atki
 
+    # Atkı çözgü TL maliyeti
     atki_cozgu_tl_maliyet_cozgu = cozgu_atki_fiyati_tl_cozgu
     atki_cozgu_tl_maliyet_atki = cozgu_atki_fiyati_tl_atki * cozgu_atki_sayisi_atki
     atki_cozgu_tl_maliyet_toplam = atki_cozgu_tl_maliyet_cozgu + atki_cozgu_tl_maliyet_atki
@@ -185,8 +136,6 @@ def dokuma_taban_hesapla(
         "iplik_dolar_maliyeti_cozgu": iplik_dolar_maliyeti_cozgu,
         "iplik_dolar_maliyeti_atki": iplik_dolar_maliyeti_atki,
         "iplik_dolar_maliyeti_toplam": iplik_dolar_maliyeti_toplam,
-        "atki_cozgu_tl_maliyet_cozgu": atki_cozgu_tl_maliyet_cozgu,
-        "atki_cozgu_tl_maliyet_atki": atki_cozgu_tl_maliyet_atki,
         "atki_cozgu_tl_maliyet_toplam": atki_cozgu_tl_maliyet_toplam,
     }
 
@@ -234,9 +183,9 @@ def dokuma_toplam_maliyet_hesapla(
     boyahane_kdv_yuzde,
     nakliye_sabit_tl,
 ):
-    hambez_kdv_orani = pct_to_ratio(hambez_kdv_yuzde)
-    boyahane_cekme_orani = pct_to_ratio(boyahane_cekme_yuzde)
-    boyahane_kdv_orani = pct_to_ratio(boyahane_kdv_yuzde)
+    hambez_kdv_orani = pct(hambez_kdv_yuzde)
+    boyahane_cekme_orani = pct(boyahane_cekme_yuzde)
+    boyahane_kdv_orani = pct(boyahane_kdv_yuzde)
 
     ham_bez_maliyeti_tl = ham_bez_maliyeti_usd * satis_kuru
     ham_bez_kdv_usd = ham_bez_maliyeti_usd * hambez_kdv_orani
@@ -288,8 +237,9 @@ def dokuma_toplam_maliyet_hesapla(
         "dokuma_toplam_maliyet_kdvli_usd": dokuma_toplam_maliyet_kdvli_usd,
         "dokuma_toplam_maliyet_kdvli_tl": dokuma_toplam_maliyet_kdvli_tl,
     }
-
-
+    # ----------------------------
+# SATIŞ MALİYETİ / SON RAPOR / SENARYO
+# ----------------------------
 def satis_maliyet_ve_kar_hesapla(
     kumas_baz_usd,
     kumas_baz_tl,
@@ -308,11 +258,11 @@ def satis_maliyet_ve_kar_hesapla(
     aksesuar_fire_yuzde,
     nakliye_kdv_yuzde,
 ):
-    toplam_fire_orani = pct_to_ratio(toplam_fire_yuzde)
-    aksesuar_kdv_orani = pct_to_ratio(aksesuar_kdv_yuzde)
-    aksesuar_fire_orani = pct_to_ratio(aksesuar_fire_yuzde)
-    nakliye_kdv_orani = pct_to_ratio(nakliye_kdv_yuzde)
-    kar_orani = pct_to_ratio(kar_orani_yuzde)
+    toplam_fire_orani = pct(toplam_fire_yuzde)
+    aksesuar_kdv_orani = pct(aksesuar_kdv_yuzde)
+    aksesuar_fire_orani = pct(aksesuar_fire_yuzde)
+    nakliye_kdv_orani = pct(nakliye_kdv_yuzde)
+    kar_orani = pct(kar_orani_yuzde)
 
     kumas_sarfiyat_gercek = kumas_cift_kisilik_sarfiyat * urun_sarfiyat
 
@@ -474,6 +424,7 @@ def son_rapor_tablosu_hesapla(
 
 def senaryo_hesapla(
     adet,
+    psf,
     dokuma_toplam_usd,
     dokuma_toplam_tl,
     alis_kuru,
@@ -490,7 +441,6 @@ def senaryo_hesapla(
     aksesuar_kdv_yuzde,
     aksesuar_fire_yuzde,
     nakliye_kdv_yuzde,
-    psf,
     trendyol_komisyon_orani_yuzde,
     kargo_ucreti_kdv_dahil,
     panel_ucreti_sabit,
@@ -516,7 +466,7 @@ def senaryo_hesapla(
     )
 
     rapor = son_rapor_tablosu_hesapla(
-        urun_adi=f"{adet} Adet Senaryo",
+        urun_adi=f"{adet} Adet",
         urun_adedi=adet,
         stok_adedi=1,
         maliyet_kdvli_tl=satis["satis_fiyati_tl"],
@@ -528,15 +478,16 @@ def senaryo_hesapla(
     )
 
     return {
-        "adet": adet,
-        "kumas_sarfiyat": kumas_cift_kisilik_sarfiyat * adet,
-        "urun_sarfiyat": urun_sarfiyat * adet,
-        "toplam_maliyet_tl": satis["toplam_maliyet_tl"],
-        "satis_fiyati_tl": satis["satis_fiyati_tl"],
-        "kar_tl": satis["kar_tl"],
-        "kar_zarar": rapor["kar_zarar"],
-        "marj_yuzde": rapor["marj_yuzde"],
-        "konya_marj_yuzde": rapor["konya_marj_yuzde"],
+        "Senaryo": f"{adet}'li",
+        "PSF": psf,
+        "Kumaş Sarfiyat": kumas_cift_kisilik_sarfiyat * adet,
+        "Ürün Sarfiyat": urun_sarfiyat * adet,
+        "Toplam Maliyet TL": satis["toplam_maliyet_tl"],
+        "Satış Fiyatı TL": satis["satis_fiyati_tl"],
+        "Kâr TL": satis["kar_tl"],
+        "Kâr/Zarar": rapor["kar_zarar"],
+        "Marj %": rapor["marj_yuzde"],
+        "Konya Marj %": rapor["konya_marj_yuzde"],
     }
 
 
@@ -555,9 +506,7 @@ if "senaryo_df" not in st.session_state:
     st.session_state.senaryo_df = None
 if "ozet" not in st.session_state:
     st.session_state.ozet = None
-
-
-# ----------------------------
+    # ----------------------------
 # UI
 # ----------------------------
 st.title("Maliyet Hesaplama ve Raporlama - TEK Lİ")
@@ -567,17 +516,24 @@ tab1, tab2 = st.tabs(["Yeni Hesap", "Kayıtlı Raporlar"])
 with tab1:
     st.subheader("1) Genel Bilgiler")
 
-    g1, g2, g3, g4, g5 = st.columns(5)
+    g1, g2, g3 = st.columns(3)
     with g1:
         urun_adi = st.text_input("Ürün adı", value="Minder")
     with g2:
         urun_adedi = st.number_input("Ürün adedi", min_value=0.0, value=1.0, step=1.0)
     with g3:
         stok_adedi = st.number_input("Stok adedi", min_value=0.0, value=100.0, step=1.0)
-    with g4:
-        psf = st.number_input("PSF", min_value=0.0, value=400.0, step=0.01)
-    with g5:
-        maksimum_adet_senaryosu = st.number_input("Maksimum adet senaryosu", min_value=1, value=4, step=1)
+
+    st.subheader("PSF Senaryoları")
+    p1, p2, p3, p4 = st.columns(4)
+    with p1:
+        psf_1 = st.number_input("1'li PSF", min_value=0.0, value=400.0, step=0.01)
+    with p2:
+        psf_2 = st.number_input("2'li PSF", min_value=0.0, value=750.0, step=0.01)
+    with p3:
+        psf_4 = st.number_input("4'lü PSF", min_value=0.0, value=1400.0, step=0.01)
+    with p4:
+        psf_6 = st.number_input("6'lı PSF", min_value=0.0, value=2000.0, step=0.01)
 
     st.subheader("2) Kur Bilgileri")
     c1, c2 = st.columns(2)
@@ -629,30 +585,29 @@ with tab1:
             punch_toplam_bolen = st.number_input("Punch toplam bölme değeri", value=10.0, step=1.0)
             mt_bolen = st.number_input("MT tül gramaj bölme değeri", value=1000.0, step=1.0)
 
-    st.subheader("3) Manuel Giriş Alanları")
-
-    m1, m2, m3, m4 = st.columns(4)
-    with m1:
+    st.subheader("3) Dokuma Manuel Giriş")
+    d1, d2 = st.columns(2)
+    with d1:
         iplik_fiyati_usd_cozgu = st.number_input("Çözgü iplik fiyatı USD", min_value=0.0, value=1.69, step=0.01)
-        cozgu_atki_fiyati_tl_cozgu = st.number_input("Çözgü atkı fiyatı TL", min_value=0.0, value=1.30, step=0.01)
-        boyahane_fiyati_pike_usd = st.number_input("Boyahane fiyatı pike USD", min_value=0.0, value=1.00, step=0.01)
-
-    with m2:
         iplik_fiyati_usd_atki = st.number_input("Atkı iplik fiyatı USD", min_value=0.0, value=2.00, step=0.01)
+    with d2:
+        cozgu_atki_fiyati_tl_cozgu = st.number_input("Çözgü atkı fiyatı TL", min_value=0.0, value=1.30, step=0.01)
         cozgu_atki_fiyati_tl_atki = st.number_input("Atkı çözgü fiyatı TL", min_value=0.0, value=0.75, step=0.01)
+
+    st.subheader("4) Konfeksiyon Manuel Giriş")
+    k1, k2, k3 = st.columns(3)
+    with k1:
         urun_maliyeti_tl = st.number_input("Ürün maliyeti TL", min_value=0.0, value=23.00, step=0.01)
-
-    with m3:
-        konfeksiyon_dikim_tl = st.number_input("Konfeksiyon dikim TL", min_value=0.0, value=28.00, step=0.01)
         konf_kesim_tl = st.number_input("Konfeksiyon kesim TL", min_value=0.0, value=0.00, step=0.01)
+    with k2:
+        konfeksiyon_dikim_tl = st.number_input("Konfeksiyon dikim TL", min_value=0.0, value=28.00, step=0.01)
         konf_paket_tl = st.number_input("Konfeksiyon paket TL", min_value=0.0, value=0.00, step=0.01)
-
-    with m4:
+    with k3:
         aksesuar_tl = st.number_input("Aksesuar TL", min_value=0.0, value=5.00, step=0.01)
         nakliye_tl = st.number_input("Satış tarafı nakliye TL", min_value=0.0, value=0.00, step=0.01)
         kar_orani_yuzde = st.number_input("Kâr oranı %", min_value=0.0, value=60.0, step=0.1)
 
-    st.subheader("4) Son Rapor Sabitleri")
+    st.subheader("5) Son Rapor Sabitleri")
     r1, r2 = st.columns(2)
     with r1:
         panel_ucreti_sabit = st.number_input("Panel ücreti KDV dahil", min_value=0.0, value=10.18, step=0.01)
@@ -701,11 +656,11 @@ with tab1:
             ham_bez["ham_bez_fiyati_usd"],
             alis_kuru,
             satis_kuru,
-            boyahane_fiyati_pike_usd,
-            hambez_kdv_yuzde,
-            boyahane_cekme_yuzde,
-            boyahane_kdv_yuzde,
-            nakliye_sabit_tl,
+            boyahane_fiyati_pike_usd=1.00,
+            hambez_kdv_yuzde=hambez_kdv_yuzde,
+            boyahane_cekme_yuzde=boyahane_cekme_yuzde,
+            boyahane_kdv_yuzde=boyahane_kdv_yuzde,
+            nakliye_sabit_tl=nakliye_sabit_tl,
         )
 
         satis_maliyet = satis_maliyet_ve_kar_hesapla(
@@ -732,43 +687,19 @@ with tab1:
             urun_adedi,
             stok_adedi,
             satis_maliyet["satis_fiyati_tl"],
-            psf,
+            psf_1,
             trendyol_komisyon_orani_yuzde,
             kargo_ucreti_kdv_dahil,
             panel_ucreti_sabit,
             iade_orani_kargo_yuzde,
         )
 
-        senaryo_listesi = []
-        for adet in range(1, maksimum_adet_senaryosu + 1):
-            senaryo_listesi.append(
-                senaryo_hesapla(
-                    adet=adet,
-                    dokuma_toplam_usd=dokuma_toplam["dokuma_toplam_maliyet_kdvli_usd"],
-                    dokuma_toplam_tl=dokuma_toplam["dokuma_toplam_maliyet_kdvli_tl"],
-                    alis_kuru=alis_kuru,
-                    urun_maliyeti_tl=urun_maliyeti_tl,
-                    konfeksiyon_dikim_tl=konfeksiyon_dikim_tl,
-                    konf_kesim_tl=konf_kesim_tl,
-                    konf_paket_tl=konf_paket_tl,
-                    aksesuar_tl=aksesuar_tl,
-                    nakliye_tl=nakliye_tl,
-                    kar_orani_yuzde=kar_orani_yuzde,
-                    kumas_cift_kisilik_sarfiyat=kumas_cift_kisilik_sarfiyat,
-                    urun_sarfiyat=urun_sarfiyat,
-                    toplam_fire_yuzde=toplam_fire_yuzde,
-                    aksesuar_kdv_yuzde=aksesuar_kdv_yuzde,
-                    aksesuar_fire_yuzde=aksesuar_fire_yuzde,
-                    nakliye_kdv_yuzde=nakliye_kdv_yuzde,
-                    psf=psf,
-                    trendyol_komisyon_orani_yuzde=trendyol_komisyon_orani_yuzde,
-                    kargo_ucreti_kdv_dahil=kargo_ucreti_kdv_dahil,
-                    panel_ucreti_sabit=panel_ucreti_sabit,
-                    iade_orani_kargo_yuzde=iade_orani_kargo_yuzde,
-                )
-            )
-
-        senaryo_df = pd.DataFrame(senaryo_listesi)
+        senaryo_df = pd.DataFrame([
+            senaryo_hesapla(1, psf_1, dokuma_toplam["dokuma_toplam_maliyet_kdvli_usd"], dokuma_toplam["dokuma_toplam_maliyet_kdvli_tl"], alis_kuru, urun_maliyeti_tl, konfeksiyon_dikim_tl, konf_kesim_tl, konf_paket_tl, aksesuar_tl, nakliye_tl, kar_orani_yuzde, kumas_cift_kisilik_sarfiyat, urun_sarfiyat, toplam_fire_yuzde, aksesuar_kdv_yuzde, aksesuar_fire_yuzde, nakliye_kdv_yuzde, trendyol_komisyon_orani_yuzde, kargo_ucreti_kdv_dahil, panel_ucreti_sabit, iade_orani_kargo_yuzde),
+            senaryo_hesapla(2, psf_2, dokuma_toplam["dokuma_toplam_maliyet_kdvli_usd"], dokuma_toplam["dokuma_toplam_maliyet_kdvli_tl"], alis_kuru, urun_maliyeti_tl, konfeksiyon_dikim_tl, konf_kesim_tl, konf_paket_tl, aksesuar_tl, nakliye_tl, kar_orani_yuzde, kumas_cift_kisilik_sarfiyat, urun_sarfiyat, toplam_fire_yuzde, aksesuar_kdv_yuzde, aksesuar_fire_yuzde, nakliye_kdv_yuzde, trendyol_komisyon_orani_yuzde, kargo_ucreti_kdv_dahil, panel_ucreti_sabit, iade_orani_kargo_yuzde),
+            senaryo_hesapla(4, psf_4, dokuma_toplam["dokuma_toplam_maliyet_kdvli_usd"], dokuma_toplam["dokuma_toplam_maliyet_kdvli_tl"], alis_kuru, urun_maliyeti_tl, konfeksiyon_dikim_tl, konf_kesim_tl, konf_paket_tl, aksesuar_tl, nakliye_tl, kar_orani_yuzde, kumas_cift_kisilik_sarfiyat, urun_sarfiyat, toplam_fire_yuzde, aksesuar_kdv_yuzde, aksesuar_fire_yuzde, nakliye_kdv_yuzde, trendyol_komisyon_orani_yuzde, kargo_ucreti_kdv_dahil, panel_ucreti_sabit, iade_orani_kargo_yuzde),
+            senaryo_hesapla(6, psf_6, dokuma_toplam["dokuma_toplam_maliyet_kdvli_usd"], dokuma_toplam["dokuma_toplam_maliyet_kdvli_tl"], alis_kuru, urun_maliyeti_tl, konfeksiyon_dikim_tl, konf_kesim_tl, konf_paket_tl, aksesuar_tl, nakliye_tl, kar_orani_yuzde, kumas_cift_kisilik_sarfiyat, urun_sarfiyat, toplam_fire_yuzde, aksesuar_kdv_yuzde, aksesuar_fire_yuzde, nakliye_kdv_yuzde, trendyol_komisyon_orani_yuzde, kargo_ucreti_kdv_dahil, panel_ucreti_sabit, iade_orani_kargo_yuzde),
+        ])
 
         detay_df = pd.DataFrame(
             [
@@ -837,7 +768,10 @@ with tab1:
             float(stok_adedi),
             float(alis_kuru),
             float(satis_kuru),
-            float(psf),
+            float(psf_1),
+            float(psf_2),
+            float(psf_4),
+            float(psf_6),
             float(trendyol_komisyon_orani_yuzde),
             float(kargo_ucreti_kdv_dahil),
             float(satis_maliyet["toplam_maliyet_usd"]),
@@ -883,7 +817,7 @@ with tab1:
         st.subheader("Detay Tablolar")
         st.dataframe(st.session_state.detay_df, use_container_width=True)
 
-        st.subheader("Adet Senaryoları")
+        st.subheader("1'li / 2'li / 4'lü / 6'lı Senaryolar")
         st.dataframe(st.session_state.senaryo_df, use_container_width=True)
 
         st.subheader("Son Rapor Tablosu")
@@ -895,8 +829,7 @@ with tab1:
                 st.success("Rapor kaydedildi.")
             else:
                 st.error("Önce hesaplama yapmalısın.")
-
-with tab2:
+                with tab2:
     st.subheader("Kayıtlı Raporlar")
     df = kayitlari_getir()
 
@@ -909,16 +842,18 @@ with tab2:
 
         k1, k2, k3, k4 = st.columns(4)
         k1.metric("Toplam Kayıt", len(df))
-
         toplam_satis = df["satis_fiyati_tl"].sum() if "satis_fiyati_tl" in df.columns else 0
         toplam_kar = df["kar_tl"].sum() if "kar_tl" in df.columns else 0
-        ortalama_marj = df["marj_yuzde"].mean() if "marj_yuzde" in df.columns else 0
+        ortalama_marj = df["marj"].mean() if "marj" in df.columns else (
+            df["marj_yuzde"].mean() if "marj_yuzde" in df.columns else 0
+        )
 
         k2.metric("Toplam Satış Fiyatı TL", f"{toplam_satis:,.2f}")
         k3.metric("Toplam Kâr TL", f"{toplam_kar:,.2f}")
         k4.metric("Ortalama Marj", f"%{ortalama_marj:,.2f}")
 
-        st.dataframe(df.drop(columns=["detay_json"]) if "detay_json" in df.columns else df, use_container_width=True)
+        gorunen_df = df.drop(columns=["detay_json"]) if "detay_json" in df.columns else df
+        st.dataframe(gorunen_df, use_container_width=True)
 
         csv_data = df.to_csv(index=False).encode("utf-8-sig")
         excel_data = to_excel_bytes(df)
@@ -952,7 +887,10 @@ with tab2:
 
         if st.button("Kayıt detayını göster", use_container_width=True):
             st.subheader("Kayıt Özeti")
-            st.dataframe(pd.DataFrame([secilen_satir]).drop(columns=["detay_json"]) if "detay_json" in secilen_satir.index else pd.DataFrame([secilen_satir]), use_container_width=True)
+            if "detay_json" in secilen_satir.index:
+                st.dataframe(pd.DataFrame([secilen_satir]).drop(columns=["detay_json"]), use_container_width=True)
+            else:
+                st.dataframe(pd.DataFrame([secilen_satir]), use_container_width=True)
 
             if "detay_json" in secilen_satir.index and pd.notna(secilen_satir["detay_json"]):
                 try:
@@ -963,7 +901,7 @@ with tab2:
                         st.dataframe(pd.DataFrame(payload["detay_df"]), use_container_width=True)
 
                     if "senaryo_df" in payload:
-                        st.subheader("Adet Senaryoları")
+                        st.subheader("1'li / 2'li / 4'lü / 6'lı Senaryolar")
                         st.dataframe(pd.DataFrame(payload["senaryo_df"]), use_container_width=True)
 
                     if "final_df" in payload:
@@ -982,3 +920,4 @@ with tab2:
             tumunu_sil()
             st.success("Tüm kayıtlar silindi.")
             st.rerun()
+                
