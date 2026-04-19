@@ -432,18 +432,17 @@ with tab1:
 
     # PSF BLOĞU BİTTİĞİ YER
 
-st.subheader("1 / 2 / 4 / 6 Minder Kargo KDV Dahil")
+    st.subheader("1 / 2 / 4 / 6 Minder Kargo KDV Dahil")
+    kg1, kg2, kg3, kg4 = st.columns(4)
+    with kg1:
+        kargo_1 = st.number_input("1 Minder Kargo", min_value=0.0, value=93.0)
+    with kg2:
+        kargo_2 = st.number_input("2 Minder Kargo", min_value=0.0, value=129.6)
+    with kg3:
+        kargo_4 = st.number_input("4 Minder Kargo", min_value=0.0, value=184.8)
+    with kg4:
+        kargo_6 = st.number_input("6 Minder Kargo", min_value=0.0, value=222.0)
 
-kg1, kg2, kg3, kg4 = st.columns(4)
-
-with kg1:
-    kargo_1 = st.number_input("1 Minder Kargo", min_value=0.0, value=93.0)
-with kg2:
-    kargo_2 = st.number_input("2 Minder Kargo", min_value=0.0, value=129.6)
-with kg3:
-    kargo_4 = st.number_input("4 Minder Kargo", min_value=0.0, value=184.8)
-with kg4:
-    kargo_6 = st.number_input("6 Minder Kargo", min_value=0.0, value=222.0)
 
     st.subheader("2) Kur Bilgileri")
     c1, c2 = st.columns(2)
