@@ -309,7 +309,6 @@ def satis_maliyet_ve_kar_hesapla(
         "Satış Fiyatı": {"USD": satis_fiyati_usd, "TL": satis_fiyati_tl},
     }
 
-
 def senaryo_hesapla(
     adet,
     psf,
@@ -339,10 +338,10 @@ def senaryo_hesapla(
         dokuma_toplam_tl,
         alis_kuru,
         urun_maliyeti_tl,
-        konfeksiyon_dikim_tl,
-        konf_kesim_tl,
-        konf_paket_tl,
-        aksesuar_tl,
+        konfeksiyon_dikim_tl * adet,
+        konf_kesim_tl * adet,
+        konf_paket_tl * adet,
+        aksesuar_tl * adet,
         nakliye_tl,
         kar_orani_yuzde,
         kumas_cift_kisilik_sarfiyat * adet,
@@ -370,6 +369,10 @@ def senaryo_hesapla(
         "PSF": round(psf, 2),
         "Kumaş Sarfiyat": round(kumas_cift_kisilik_sarfiyat * adet, 4),
         "Ürün Sarfiyat": round(urun_sarfiyat * adet, 4),
+        "Kesim TL": round(konf_kesim_tl * adet, 4),
+        "Dikim TL": round(konfeksiyon_dikim_tl * adet, 4),
+        "Paket TL": round(konf_paket_tl * adet, 4),
+        "Aksesuar TL": round(aksesuar_tl * adet, 4),
         "Toplam Maliyet TL": round(toplam_maliyet_tl, 4),
         "Satış Fiyatı TL": round(satis_fiyati_tl, 4),
         "Kâr TL": round(kar_tl, 4),
@@ -377,6 +380,7 @@ def senaryo_hesapla(
         "Marj %": round(marj * 100, 4),
         "Konya Marj %": round(konya_marj * 100, 4),
     }
+
 
 
 def dict_to_detail_df(*blocks):
