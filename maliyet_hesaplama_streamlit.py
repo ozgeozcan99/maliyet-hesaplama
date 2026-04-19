@@ -6,7 +6,7 @@ from datetime import datetime
 
 st.set_page_config(page_title="Maliyet Hesaplama Raporu", page_icon="📊", layout="wide")
 
-DB_FILE = "maliyet_raporu.db"
+DB_FILE = "maliyet_raporu_v2.db"
 
 
 # ----------------------------
