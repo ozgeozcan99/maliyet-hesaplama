@@ -68,7 +68,7 @@ def safe_div(a, b):
 
 def pct(x):
     return x / 100.0
-    # ----------------------------
+   # ----------------------------
 # DOKUMA HESAPLARI
 # ----------------------------
 def dokuma_taban_hesapla(
@@ -236,8 +236,8 @@ def dokuma_toplam_maliyet_hesapla(
         "nakliye_tl": nakliye_tl,
         "dokuma_toplam_maliyet_kdvli_usd": dokuma_toplam_maliyet_kdvli_usd,
         "dokuma_toplam_maliyet_kdvli_tl": dokuma_toplam_maliyet_kdvli_tl,
-    }
-    # ----------------------------
+    } 
+# ----------------------------
 # SATIŞ MALİYETİ / SON RAPOR / SENARYO
 # ----------------------------
 def satis_maliyet_ve_kar_hesapla(
@@ -506,7 +506,7 @@ if "senaryo_df" not in st.session_state:
     st.session_state.senaryo_df = None
 if "ozet" not in st.session_state:
     st.session_state.ozet = None
-    # ----------------------------
+ # ----------------------------
 # UI
 # ----------------------------
 st.title("Maliyet Hesaplama ve Raporlama - TEK Lİ")
@@ -829,7 +829,7 @@ with tab1:
                 st.success("Rapor kaydedildi.")
             else:
                 st.error("Önce hesaplama yapmalısın.")
-                with tab2:
+with tab2:
     st.subheader("Kayıtlı Raporlar")
     df = kayitlari_getir()
 
@@ -920,4 +920,3 @@ with tab1:
             tumunu_sil()
             st.success("Tüm kayıtlar silindi.")
             st.rerun()
-                
