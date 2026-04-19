@@ -3,10 +3,12 @@ import pandas as pd
 import sqlite3
 from datetime import datetime
 
+st.set_page_config(page_title="Maliyet Hesaplama", layout="wide")
+
 # ----------------------------
-# DB
+# DATABASE
 # ----------------------------
-conn = sqlite3.connect("rapor_v1.db", check_same_thread=False)
+conn = sqlite3.connect("maliyet_v4.db", check_same_thread=False)
 
 conn.execute("""
 CREATE TABLE IF NOT EXISTS rapor (
@@ -40,14 +42,19 @@ st.title("Maliyet Hesaplama")
 # ----------------------------
 with st.expander("Sabitler", expanded=True):
 
-    punch_katsayi = st.number_input("Punch katsayı", value=1.1693)
-    mt_bolen = st.number_input("MT bölme değeri", value=1000.0)
+    col1,col2,col3 = st.columns(3)
 
-    toplam_fire = st.number_input("Toplam fire %", value=8.0)
-    aksesuar_fire = st.number_input("Aksesuar fire %", value=7.0)
+    with col1:
+        punch_katsayi = st.number_input("Punch katsayı", value=1.1693)
+        mt_bolen = st.number_input("MT bölme değeri", value=1000.0)
 
-    trendyol_komisyon = st.number_input("Trendyol %", value=21.0)
-    kargo = st.number_input("Kargo", value=93.0)
+    with col2:
+        toplam_fire = st.number_input("Toplam fire %", value=8.0)
+        aksesuar_fire = st.number_input("Aksesuar fire %", value=7.0)
+
+    with col3:
+        trendyol_komisyon = st.number_input("Trendyol %", value=21.0)
+        kargo = st.number_input("Kargo", value=93.0)
 
 # ----------------------------
 # GİRİŞLER
@@ -56,8 +63,8 @@ col1,col2,col3 = st.columns(3)
 
 with col1:
     ip_no = st.number_input("İp no", value=35.0)
-    tarak = st.number_input("Tarak", value=195.0)
-    ham = st.number_input("Ham", value=190.0)
+    tarak = st.number_input("Tarak end", value=195.0)
+    ham = st.number_input("Ham end", value=190.0)
     atkı_sayisi = st.number_input("Atkı sayısı", value=46.0)
 
 with col2:
@@ -76,17 +83,17 @@ with col3:
 if st.button("HESAPLA"):
 
     # ----------------------------
-    # PUNCH (DOĞRU)
+    # PUNCH (DÜZELTİLDİ)
     # ----------------------------
-    punch = ((tarak/ham) * (atkı_sayisi/punch_katsayi)) / ip_no
+    punch = ((tarak / ham) * (atkı_sayisi / punch_katsayi)) / ip_no
 
     # ----------------------------
-    # MT TÜL GRAMAJ
+    # MT TÜL GRAMAJ (DÜZELTİLDİ)
     # ----------------------------
     mt = (punch * tarak) / mt_bolen
 
     # ----------------------------
-    # FIRE
+    # FIRE (DÜZELTİLDİ)
     # ----------------------------
     fireli = mt + (mt * pct(toplam_fire))
 
@@ -109,7 +116,7 @@ if st.button("HESAPLA"):
     # ----------------------------
     # TOPLAM MALİYET
     # ----------------------------
-    toplam_usd = ham_bez_usd + urun_usd + (konf/alis_kur)
+    toplam_usd = ham_bez_usd + urun_usd + (konf / alis_kur)
     toplam_tl = toplam_usd * satis_kur
 
     # ----------------------------
@@ -119,12 +126,12 @@ if st.button("HESAPLA"):
     satis = toplam_tl + kar
 
     # ----------------------------
-    # TRENDYOL + KARGO
+    # TRENDYOL
     # ----------------------------
     komisyon = satis * pct(trendyol_komisyon)
     toplam_kargo = kargo
 
-    net = satis - komisyon - toplam_kargo - toplam_tl
+    net_kar = satis - komisyon - toplam_kargo - toplam_tl
 
     # ----------------------------
     # MARJ
@@ -136,13 +143,19 @@ if st.button("HESAPLA"):
     # ----------------------------
     st.success("Hesaplandı")
 
-    st.metric("Punch", round(punch,4))
-    st.metric("MT Gramaj", round(mt,4))
+    c1,c2,c3,c4 = st.columns(4)
 
-    st.metric("Toplam Maliyet TL", round(toplam_tl,2))
-    st.metric("Satış TL", round(satis,2))
-    st.metric("Kar TL", round(net,2))
-    st.metric("Marj %", round(marj*100,2))
+    c1.metric("Punch", round(punch,4))
+    c2.metric("MT Gramaj", round(mt,4))
+    c3.metric("Toplam Maliyet TL", round(toplam_tl,2))
+    c4.metric("Satış TL", round(satis,2))
+
+    c5,c6,c7,c8 = st.columns(4)
+
+    c5.metric("Kar TL", round(net_kar,2))
+    c6.metric("Marj %", round(marj*100,2))
+    c7.metric("Komisyon", round(komisyon,2))
+    c8.metric("Kargo", round(toplam_kargo,2))
 
     # ----------------------------
     # KAYDET
@@ -155,7 +168,7 @@ if st.button("HESAPLA"):
                 "urun",
                 toplam_tl,
                 satis,
-                net,
+                net_kar,
                 marj*100
             )
         )
@@ -163,7 +176,7 @@ if st.button("HESAPLA"):
         st.success("Kaydedildi")
 
 # ----------------------------
-# RAPORLAR
+# RAPOR
 # ----------------------------
 st.subheader("Kayıtlar")
 
