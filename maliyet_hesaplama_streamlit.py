@@ -6,7 +6,7 @@ from datetime import datetime
 
 st.set_page_config(page_title="Maliyet Hesaplama Raporu", page_icon="📊", layout="wide")
 
-DB_FILE = "maliyet_raporu_v3.db"
+DB_FILE = "maliyet_raporu_v4.db"
 
 
 # ----------------------------
@@ -125,6 +125,8 @@ def dokuma_taban_hesapla(
     iplik_fiyati_usd_atki,
     cozgu_atki_fiyati_tl_cozgu,
     cozgu_atki_fiyati_tl_atki,
+    punch_katsayi,
+    mt_bolen,
 ):
     fire_cozgu = pct_to_ratio(fire_cozgu_yuzde)
     fire_atki = pct_to_ratio(fire_atki_yuzde)
@@ -132,14 +134,25 @@ def dokuma_taban_hesapla(
     tel_sayisi_cozgu = tarak_end_cozgu * cozgu_atki_sayisi_cozgu
     tel_sayisi_atki = tarak_end_atki * cozgu_atki_sayisi_atki
 
-    punch_gramaj_cozgu = safe_div((safe_div(tarak_end_cozgu, ham_end_cozgu) * cozgu_atki_sayisi_cozgu), ip_no_cozgu)
-    punch_gramaj_atki = safe_div((safe_div(tarak_end_atki, ham_end_atki) * cozgu_atki_sayisi_atki), ip_no_atki)
+    # Doğru punch formülü:
+    # ((tarak / ham) * (cozgu_atki_sayisi / punch_katsayi)) / ip_no
+    punch_gramaj_cozgu = (
+        ((tarak_end_cozgu / ham_end_cozgu) * (cozgu_atki_sayisi_cozgu / punch_katsayi))
+        / ip_no_cozgu
+    )
+    punch_gramaj_atki = (
+        ((tarak_end_atki / ham_end_atki) * (cozgu_atki_sayisi_atki / punch_katsayi))
+        / ip_no_atki
+    )
+    punch_gramaj_toplam = punch_gramaj_cozgu + punch_gramaj_atki
 
-    mt_tul_gramaj_cozgu = (punch_gramaj_cozgu * tarak_end_cozgu) / 1000
-    mt_tul_gramaj_atki = (punch_gramaj_atki * tarak_end_atki) / 1000
+    mt_tul_gramaj_cozgu = (punch_gramaj_cozgu * tarak_end_cozgu) / mt_bolen
+    mt_tul_gramaj_atki = (punch_gramaj_atki * tarak_end_atki) / mt_bolen
+    mt_tul_gramaj_toplam = mt_tul_gramaj_cozgu + mt_tul_gramaj_atki
 
     fireli_mt_tul_gramaj_cozgu = mt_tul_gramaj_cozgu + (mt_tul_gramaj_cozgu * fire_cozgu)
     fireli_mt_tul_gramaj_atki = mt_tul_gramaj_atki + (mt_tul_gramaj_atki * fire_atki)
+    fireli_mt_tul_gramaj_toplam = fireli_mt_tul_gramaj_cozgu + fireli_mt_tul_gramaj_atki
 
     iplik_dolar_maliyeti_cozgu = iplik_fiyati_usd_cozgu * fireli_mt_tul_gramaj_cozgu
     iplik_dolar_maliyeti_atki = iplik_fiyati_usd_atki * fireli_mt_tul_gramaj_atki
@@ -150,6 +163,17 @@ def dokuma_taban_hesapla(
     atki_cozgu_tl_maliyet_toplam = atki_cozgu_tl_maliyet_cozgu + atki_cozgu_tl_maliyet_atki
 
     return {
+        "tel_sayisi_cozgu": tel_sayisi_cozgu,
+        "tel_sayisi_atki": tel_sayisi_atki,
+        "punch_gramaj_cozgu": punch_gramaj_cozgu,
+        "punch_gramaj_atki": punch_gramaj_atki,
+        "punch_gramaj_toplam": punch_gramaj_toplam,
+        "mt_tul_gramaj_cozgu": mt_tul_gramaj_cozgu,
+        "mt_tul_gramaj_atki": mt_tul_gramaj_atki,
+        "mt_tul_gramaj_toplam": mt_tul_gramaj_toplam,
+        "fireli_mt_tul_gramaj_cozgu": fireli_mt_tul_gramaj_cozgu,
+        "fireli_mt_tul_gramaj_atki": fireli_mt_tul_gramaj_atki,
+        "fireli_mt_tul_gramaj_toplam": fireli_mt_tul_gramaj_toplam,
         "iplik_dolar_maliyeti_toplam": iplik_dolar_maliyeti_toplam,
         "atki_cozgu_tl_maliyet_toplam": atki_cozgu_tl_maliyet_toplam,
     }
@@ -461,6 +485,8 @@ with tab1:
             nakliye_kdv_yuzde = st.number_input("Nakliye KDV %", value=20.0, step=0.1)
             trendyol_komisyon_orani_yuzde = st.number_input("Trendyol komisyon %", value=21.0, step=0.1)
             kargo_ucreti_kdv_dahil = st.number_input("Kargo ücreti KDV dahil", value=93.0, step=0.01)
+            punch_katsayi = st.number_input("Punch katsayısı", value=1.693, step=0.001, format="%.3f")
+            mt_bolen = st.number_input("MT tül gramaj bölme değeri", value=1000.0, step=1.0)
 
     st.subheader("3) Manuel Giriş Alanları")
 
@@ -499,6 +525,8 @@ with tab1:
             iplik_fiyati_usd_atki,
             cozgu_atki_fiyati_tl_cozgu,
             cozgu_atki_fiyati_tl_atki,
+            punch_katsayi,
+            mt_bolen,
         )
 
         ham_bez = ham_bez_hesapla(
@@ -529,7 +557,7 @@ with tab1:
             nakliye_sabit_tl,
         )
 
-        # DÜZELTME: burada dokuma_toplam değil, ham_bez satış maliyetine bağlanıyor
+        # Satış maliyetine ham bez bağlanır
         satis_maliyet = satis_maliyet_ve_kar_hesapla(
             ham_bez["ham_bez_fiyati_usd"],
             ham_bez["ham_bez_fiyati_tl"],
@@ -562,13 +590,24 @@ with tab1:
 
         detay_df = pd.DataFrame(
             [
+                ["Tel Sayısı Çözgü", dokuma_taban["tel_sayisi_cozgu"], None],
+                ["Tel Sayısı Atkı", dokuma_taban["tel_sayisi_atki"], None],
+                ["Punch Gramaj Çözgü", dokuma_taban["punch_gramaj_cozgu"], None],
+                ["Punch Gramaj Atkı", dokuma_taban["punch_gramaj_atki"], None],
+                ["Punch Gramaj Toplam", dokuma_taban["punch_gramaj_toplam"], None],
+                ["MT Tül Gramaj Çözgü", dokuma_taban["mt_tul_gramaj_cozgu"], None],
+                ["MT Tül Gramaj Atkı", dokuma_taban["mt_tul_gramaj_atki"], None],
+                ["MT Tül Gramaj Toplam", dokuma_taban["mt_tul_gramaj_toplam"], None],
+                ["Fireli MT Tül Gramaj Çözgü", dokuma_taban["fireli_mt_tul_gramaj_cozgu"], None],
+                ["Fireli MT Tül Gramaj Atkı", dokuma_taban["fireli_mt_tul_gramaj_atki"], None],
+                ["Fireli MT Tül Gramaj Toplam", dokuma_taban["fireli_mt_tul_gramaj_toplam"], None],
                 ["Ham Bez Fiyatı", ham_bez["ham_bez_fiyati_usd"], ham_bez["ham_bez_fiyati_tl"]],
                 ["Dokuma Toplam Maliyet KDV'li", dokuma_toplam["dokuma_toplam_maliyet_kdvli_usd"], dokuma_toplam["dokuma_toplam_maliyet_kdvli_tl"]],
                 ["Satış Toplam Maliyet KDV'li", satis_maliyet["toplam_maliyet_usd"], satis_maliyet["toplam_maliyet_tl"]],
                 ["Kâr", satis_maliyet["kar_usd"], satis_maliyet["kar_tl"]],
                 ["Satış Fiyatı", satis_maliyet["satis_fiyati_usd"], satis_maliyet["satis_fiyati_tl"]],
             ],
-            columns=["Kalem", "USD", "TL"],
+            columns=["Kalem", "USD / Değer", "TL"],
         )
 
         final_df = pd.DataFrame([son_rapor])
