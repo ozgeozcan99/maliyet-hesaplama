@@ -312,6 +312,7 @@ def satis_maliyet_ve_kar_hesapla(
 def senaryo_hesapla(
     adet,
     psf,
+    kargo_ucreti_kdv_dahil,
     dokuma_toplam_usd,
     dokuma_toplam_tl,
     alis_kuru,
@@ -329,7 +330,6 @@ def senaryo_hesapla(
     aksesuar_fire_yuzde,
     nakliye_kdv_yuzde,
     trendyol_komisyon_orani_yuzde,
-    kargo_ucreti_kdv_dahil,
     panel_ucreti_sabit,
     iade_orani_kargo_yuzde,
 ):
@@ -367,6 +367,7 @@ def senaryo_hesapla(
     return {
         "Senaryo": f"{adet} Minder",
         "PSF": round(psf, 2),
+        "Kargo": round(kargo_ucreti_kdv_dahil, 2),
         "Kumaş Sarfiyat": round(kumas_cift_kisilik_sarfiyat * adet, 4),
         "Ürün Sarfiyat": round(urun_sarfiyat * adet, 4),
         "Kesim TL": round(konf_kesim_tl * adet, 4),
@@ -428,6 +429,21 @@ with tab1:
         psf_4 = st.number_input("4 Minder PSF", min_value=0.0, value=1400.0, step=0.01)
     with p4:
         psf_6 = st.number_input("6 Minder PSF", min_value=0.0, value=2000.0, step=0.01)
+
+    # PSF BLOĞU BİTTİĞİ YER
+
+st.subheader("1 / 2 / 4 / 6 Minder Kargo KDV Dahil")
+
+kg1, kg2, kg3, kg4 = st.columns(4)
+
+with kg1:
+    kargo_1 = st.number_input("1 Minder Kargo", min_value=0.0, value=93.0)
+with kg2:
+    kargo_2 = st.number_input("2 Minder Kargo", min_value=0.0, value=129.6)
+with kg3:
+    kargo_4 = st.number_input("4 Minder Kargo", min_value=0.0, value=184.8)
+with kg4:
+    kargo_6 = st.number_input("6 Minder Kargo", min_value=0.0, value=222.0)
 
     st.subheader("2) Kur Bilgileri")
     c1, c2 = st.columns(2)
@@ -556,11 +572,95 @@ with tab1:
         detay_df = dict_to_detail_df(dokuma_taban, ham_bez, atki_bilgisi, dokuma_toplam)
 
         senaryo_df = pd.DataFrame([
-            senaryo_hesapla(1, psf_1, dokuma_toplam["Dokuma Toplam Maliyet"]["USD"], dokuma_toplam["Dokuma Toplam Maliyet"]["TL"], alis_kuru, urun_maliyeti_tl, konfeksiyon_dikim_tl, konf_kesim_tl, konf_paket_tl, aksesuar_tl, nakliye_tl, kar_orani_yuzde, kumas_cift_kisilik_sarfiyat, urun_sarfiyat, toplam_fire_yuzde, aksesuar_kdv_yuzde, aksesuar_fire_yuzde, nakliye_kdv_yuzde, trendyol_komisyon_orani_yuzde, kargo_ucreti_kdv_dahil, panel_ucreti_sabit, iade_orani_kargo_yuzde),
-            senaryo_hesapla(2, psf_2, dokuma_toplam["Dokuma Toplam Maliyet"]["USD"], dokuma_toplam["Dokuma Toplam Maliyet"]["TL"], alis_kuru, urun_maliyeti_tl, konfeksiyon_dikim_tl, konf_kesim_tl, konf_paket_tl, aksesuar_tl, nakliye_tl, kar_orani_yuzde, kumas_cift_kisilik_sarfiyat, urun_sarfiyat, toplam_fire_yuzde, aksesuar_kdv_yuzde, aksesuar_fire_yuzde, nakliye_kdv_yuzde, trendyol_komisyon_orani_yuzde, kargo_ucreti_kdv_dahil, panel_ucreti_sabit, iade_orani_kargo_yuzde),
-            senaryo_hesapla(4, psf_4, dokuma_toplam["Dokuma Toplam Maliyet"]["USD"], dokuma_toplam["Dokuma Toplam Maliyet"]["TL"], alis_kuru, urun_maliyeti_tl, konfeksiyon_dikim_tl, konf_kesim_tl, konf_paket_tl, aksesuar_tl, nakliye_tl, kar_orani_yuzde, kumas_cift_kisilik_sarfiyat, urun_sarfiyat, toplam_fire_yuzde, aksesuar_kdv_yuzde, aksesuar_fire_yuzde, nakliye_kdv_yuzde, trendyol_komisyon_orani_yuzde, kargo_ucreti_kdv_dahil, panel_ucreti_sabit, iade_orani_kargo_yuzde),
-            senaryo_hesapla(6, psf_6, dokuma_toplam["Dokuma Toplam Maliyet"]["USD"], dokuma_toplam["Dokuma Toplam Maliyet"]["TL"], alis_kuru, urun_maliyeti_tl, konfeksiyon_dikim_tl, konf_kesim_tl, konf_paket_tl, aksesuar_tl, nakliye_tl, kar_orani_yuzde, kumas_cift_kisilik_sarfiyat, urun_sarfiyat, toplam_fire_yuzde, aksesuar_kdv_yuzde, aksesuar_fire_yuzde, nakliye_kdv_yuzde, trendyol_komisyon_orani_yuzde, kargo_ucreti_kdv_dahil, panel_ucreti_sabit, iade_orani_kargo_yuzde),
-        ])
+    senaryo_hesapla(
+        1, psf_1, kargo_1,
+        dokuma_toplam["Dokuma Toplam Maliyet"]["USD"],
+        dokuma_toplam["Dokuma Toplam Maliyet"]["TL"],
+        alis_kuru,
+        urun_maliyeti_tl,
+        konfeksiyon_dikim_tl,
+        konf_kesim_tl,
+        konf_paket_tl,
+        aksesuar_tl,
+        nakliye_tl,
+        kar_orani_yuzde,
+        kumas_cift_kisilik_sarfiyat,
+        urun_sarfiyat,
+        toplam_fire_yuzde,
+        aksesuar_kdv_yuzde,
+        aksesuar_fire_yuzde,
+        nakliye_kdv_yuzde,
+        trendyol_komisyon_orani_yuzde,
+        panel_ucreti_sabit,
+        iade_orani_kargo_yuzde,
+    ),
+    senaryo_hesapla(
+        2, psf_2, kargo_2,
+        dokuma_toplam["Dokuma Toplam Maliyet"]["USD"],
+        dokuma_toplam["Dokuma Toplam Maliyet"]["TL"],
+        alis_kuru,
+        urun_maliyeti_tl,
+        konfeksiyon_dikim_tl,
+        konf_kesim_tl,
+        konf_paket_tl,
+        aksesuar_tl,
+        nakliye_tl,
+        kar_orani_yuzde,
+        kumas_cift_kisilik_sarfiyat,
+        urun_sarfiyat,
+        toplam_fire_yuzde,
+        aksesuar_kdv_yuzde,
+        aksesuar_fire_yuzde,
+        nakliye_kdv_yuzde,
+        trendyol_komisyon_orani_yuzde,
+        panel_ucreti_sabit,
+        iade_orani_kargo_yuzde,
+    ),
+    senaryo_hesapla(
+        4, psf_4, kargo_4,
+        dokuma_toplam["Dokuma Toplam Maliyet"]["USD"],
+        dokuma_toplam["Dokuma Toplam Maliyet"]["TL"],
+        alis_kuru,
+        urun_maliyeti_tl,
+        konfeksiyon_dikim_tl,
+        konf_kesim_tl,
+        konf_paket_tl,
+        aksesuar_tl,
+        nakliye_tl,
+        kar_orani_yuzde,
+        kumas_cift_kisilik_sarfiyat,
+        urun_sarfiyat,
+        toplam_fire_yuzde,
+        aksesuar_kdv_yuzde,
+        aksesuar_fire_yuzde,
+        nakliye_kdv_yuzde,
+        trendyol_komisyon_orani_yuzde,
+        panel_ucreti_sabit,
+        iade_orani_kargo_yuzde,
+    ),
+    senaryo_hesapla(
+        6, psf_6, kargo_6,
+        dokuma_toplam["Dokuma Toplam Maliyet"]["USD"],
+        dokuma_toplam["Dokuma Toplam Maliyet"]["TL"],
+        alis_kuru,
+        urun_maliyeti_tl,
+        konfeksiyon_dikim_tl,
+        konf_kesim_tl,
+        konf_paket_tl,
+        aksesuar_tl,
+        nakliye_tl,
+        kar_orani_yuzde,
+        kumas_cift_kisilik_sarfiyat,
+        urun_sarfiyat,
+        toplam_fire_yuzde,
+        aksesuar_kdv_yuzde,
+        aksesuar_fire_yuzde,
+        nakliye_kdv_yuzde,
+        trendyol_komisyon_orani_yuzde,
+        panel_ucreti_sabit,
+        iade_orani_kargo_yuzde,
+    ),
+])
 
         st.session_state.detay_df = detay_df
         st.session_state.senaryo_df = senaryo_df
