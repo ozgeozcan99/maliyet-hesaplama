@@ -6,7 +6,7 @@ from datetime import datetime
 
 st.set_page_config(page_title="Maliyet Hesaplama Raporu", page_icon="📊", layout="wide")
 
-DB_FILE = "maliyet_raporu_v4.db"
+DB_FILE = "maliyet_raporu_v5.db"
 
 
 # ----------------------------
@@ -126,6 +126,7 @@ def dokuma_taban_hesapla(
     cozgu_atki_fiyati_tl_cozgu,
     cozgu_atki_fiyati_tl_atki,
     punch_katsayi,
+    punch_toplam_bolen,
     mt_bolen,
 ):
     fire_cozgu = pct_to_ratio(fire_cozgu_yuzde)
@@ -134,8 +135,7 @@ def dokuma_taban_hesapla(
     tel_sayisi_cozgu = tarak_end_cozgu * cozgu_atki_sayisi_cozgu
     tel_sayisi_atki = tarak_end_atki * cozgu_atki_sayisi_atki
 
-    # Doğru punch formülü:
-    # ((tarak / ham) * (cozgu_atki_sayisi / punch_katsayi)) / ip_no
+    # Punch gramaj: ((tarak/ham) * (sayi/punch_katsayi)) / ip_no
     punch_gramaj_cozgu = (
         ((tarak_end_cozgu / ham_end_cozgu) * (cozgu_atki_sayisi_cozgu / punch_katsayi))
         / ip_no_cozgu
@@ -144,12 +144,16 @@ def dokuma_taban_hesapla(
         ((tarak_end_atki / ham_end_atki) * (cozgu_atki_sayisi_atki / punch_katsayi))
         / ip_no_atki
     )
-    punch_gramaj_toplam = punch_gramaj_cozgu + punch_gramaj_atki
 
+    # Toplam punch: çözgü + atkı, sonra /10
+    punch_gramaj_toplam = safe_div((punch_gramaj_cozgu + punch_gramaj_atki), punch_toplam_bolen)
+
+    # MT tül gramaj
     mt_tul_gramaj_cozgu = (punch_gramaj_cozgu * tarak_end_cozgu) / mt_bolen
     mt_tul_gramaj_atki = (punch_gramaj_atki * tarak_end_atki) / mt_bolen
     mt_tul_gramaj_toplam = mt_tul_gramaj_cozgu + mt_tul_gramaj_atki
 
+    # Fireli MT tül gramaj
     fireli_mt_tul_gramaj_cozgu = mt_tul_gramaj_cozgu + (mt_tul_gramaj_cozgu * fire_cozgu)
     fireli_mt_tul_gramaj_atki = mt_tul_gramaj_atki + (mt_tul_gramaj_atki * fire_atki)
     fireli_mt_tul_gramaj_toplam = fireli_mt_tul_gramaj_cozgu + fireli_mt_tul_gramaj_atki
@@ -405,16 +409,12 @@ def son_rapor_tablosu_hesapla(
 # ----------------------------
 if "sonuc_hazir" not in st.session_state:
     st.session_state.sonuc_hazir = False
-
 if "kayit_verisi" not in st.session_state:
     st.session_state.kayit_verisi = None
-
 if "detay_df" not in st.session_state:
     st.session_state.detay_df = None
-
 if "final_df" not in st.session_state:
     st.session_state.final_df = None
-
 if "ozet" not in st.session_state:
     st.session_state.ozet = None
 
@@ -486,6 +486,7 @@ with tab1:
             trendyol_komisyon_orani_yuzde = st.number_input("Trendyol komisyon %", value=21.0, step=0.1)
             kargo_ucreti_kdv_dahil = st.number_input("Kargo ücreti KDV dahil", value=93.0, step=0.01)
             punch_katsayi = st.number_input("Punch katsayısı", value=1.693, step=0.001, format="%.3f")
+            punch_toplam_bolen = st.number_input("Punch toplam bölme değeri", value=10.0, step=1.0)
             mt_bolen = st.number_input("MT tül gramaj bölme değeri", value=1000.0, step=1.0)
 
     st.subheader("3) Manuel Giriş Alanları")
@@ -526,6 +527,7 @@ with tab1:
             cozgu_atki_fiyati_tl_cozgu,
             cozgu_atki_fiyati_tl_atki,
             punch_katsayi,
+            punch_toplam_bolen,
             mt_bolen,
         )
 
@@ -557,7 +559,6 @@ with tab1:
             nakliye_sabit_tl,
         )
 
-        # Satış maliyetine ham bez bağlanır
         satis_maliyet = satis_maliyet_ve_kar_hesapla(
             ham_bez["ham_bez_fiyati_usd"],
             ham_bez["ham_bez_fiyati_tl"],
