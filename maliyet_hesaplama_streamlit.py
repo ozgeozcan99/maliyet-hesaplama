@@ -243,7 +243,7 @@ def satis_maliyet_ve_kar_hesapla(
     nakliye_kdv_orani = pct(nakliye_kdv_yuzde)
     kar_orani = pct(kar_orani_yuzde)
 
-    kumas_sarfiyat_gercek = kumas_cift_kisilik_sarfiyat * urun_sarfiyat
+    kumas_sarfiyat_gercek = kumas_cift_kisilik_sarfiyat
 
     kumas_maliyeti_usd = kumas_baz_usd * kumas_sarfiyat_gercek
     kumas_maliyeti_tl = kumas_baz_tl * kumas_sarfiyat_gercek
